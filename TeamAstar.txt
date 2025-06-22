@@ -4,7 +4,7 @@
 #include <conio.h>
 #include <math.h>
 #include <string.h>
-
+#include <time.h>
 #define UP 72
 #define DOWN 80
 #define LEFT 75
@@ -36,6 +36,7 @@ int field[1001][1001] = {
     {'O', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 };
 
+
 typedef struct {
     int x, y;
     int g, h;
@@ -64,13 +65,17 @@ void draw_path(int gx, int gy) {
 }
 
 void A_star(int sx, int sy, int gx, int gy) {
+    LARGE_INTEGER freq, start, end;
+    QueryPerformanceFrequency(&freq);
+    QueryPerformanceCounter(&start);  // 시작 시간
+
+    // 기존 A* 알고리즘 코드 그대로
     memset(visited, 0, sizeof(visited));
     memset(parent, -1, sizeof(parent));
-
     Node open[1000];
     int openSize = 0;
-    Node start = { sx, sy, 0, heuristic(sx, sy, gx, gy), -1, -1 };
-    open[openSize++] = start;
+    Node startNode = { sx, sy, 0, heuristic(sx, sy, gx, gy), -1, -1 };
+    open[openSize++] = startNode;
 
     while (openSize > 0) {
         int idx = 0;
@@ -87,17 +92,20 @@ void A_star(int sx, int sy, int gx, int gy) {
         parent[cur.y][cur.x] = cur;
 
         if (field[cur.y][cur.x] == 0)
-            field[cur.y][cur.x] = -4;  // 탐색된 노드
+            field[cur.y][cur.x] = -4;
 
         if (cur.x == gx && cur.y == gy) {
             draw_path(gx, gy);
+            QueryPerformanceCounter(&end);  // 종료 시간
+
+            double elapsed = (double)(end.QuadPart - start.QuadPart) * 1000.0 / freq.QuadPart;
+            printf("\n[A* 고정밀 수행 시간: %.4f ms]\n", elapsed);
             return;
         }
 
         for (int d = 0; d < 4; d++) {
             int nx = cur.x + dx[d];
             int ny = cur.y + dy[d];
-
             if (nx < 1 || nx > 15 || ny < 1 || ny > 15) continue;
             if (field[ny][nx] == -1 || visited[ny][nx]) continue;
 
@@ -105,7 +113,83 @@ void A_star(int sx, int sy, int gx, int gy) {
             open[openSize++] = next;
         }
     }
+
+    QueryPerformanceCounter(&end);
+    double elapsed = (double)(end.QuadPart - start.QuadPart) * 1000.0 / freq.QuadPart;
+    printf("\n[A* 고정밀 수행 시간 (실패): %.4f ms]\n", elapsed);
 }
+void Dijkstra(int sx, int sy, int gx, int gy) {
+    LARGE_INTEGER freq, start, end;
+    QueryPerformanceFrequency(&freq);
+    QueryPerformanceCounter(&start);
+
+    memset(visited, 0, sizeof(visited));
+    memset(parent, -1, sizeof(parent));
+
+    Node dist[20][20];
+    for (int i = 0; i < 20; i++)
+        for (int j = 0; j < 20; j++)
+            dist[i][j].g = 1e9;
+
+    dist[sy][sx].g = 0;
+    dist[sy][sx].x = sx;
+    dist[sy][sx].y = sy;
+    dist[sy][sx].parent_x = -1;
+    dist[sy][sx].parent_y = -1;
+
+    Node pq[1000];  // 우선순위 큐 대체 배열
+    int size = 0;
+    pq[size++] = dist[sy][sx];
+
+    while (size > 0) {
+        // 최소 거리 노드 찾기
+        int idx = 0;
+        for (int i = 1; i < size; i++)
+            if (pq[i].g < pq[idx].g)
+                idx = i;
+
+        Node cur = pq[idx];
+        pq[idx] = pq[--size];
+
+        if (visited[cur.y][cur.x]) continue;
+        visited[cur.y][cur.x] = 1;
+        parent[cur.y][cur.x] = cur;
+
+        if (field[cur.y][cur.x] == 0)
+            field[cur.y][cur.x] = -4;
+
+        if (cur.x == gx && cur.y == gy) {
+            draw_path(gx, gy);
+            QueryPerformanceCounter(&end);
+            double elapsed = (double)(end.QuadPart - start.QuadPart) * 1000.0 / freq.QuadPart;
+            printf("\n[다익스트라 수행 시간: %.4f ms]\n", elapsed);
+            return;
+        }
+
+        for (int d = 0; d < 4; d++) {
+            int nx = cur.x + dx[d];
+            int ny = cur.y + dy[d];
+            if (nx < 1 || nx > 15 || ny < 1 || ny > 15) continue;
+            if (field[ny][nx] == -1 || visited[ny][nx]) continue;
+
+            int cost = cur.g + 1;
+            if (cost < dist[ny][nx].g) {
+                dist[ny][nx].g = cost;
+                dist[ny][nx].x = nx;
+                dist[ny][nx].y = ny;
+                dist[ny][nx].parent_x = cur.x;
+                dist[ny][nx].parent_y = cur.y;
+                pq[size++] = dist[ny][nx];
+            }
+        }
+    }
+
+    QueryPerformanceCounter(&end);
+    double elapsed = (double)(end.QuadPart - start.QuadPart) * 1000.0 / freq.QuadPart;
+    printf("\n[다익스트라 수행 시간 (실패): %.4f ms]\n", elapsed);
+}
+
+
 
 void print_field() {
     for (int i = 0; i <= 15; i++) {
@@ -193,6 +277,16 @@ int main() {
                     A_star(1, 1, goalX, goalY);
             }
             break;
+        case 'd':
+        case 'D':
+            if (goalX != -1 && goalY != -1) {
+                for (int i = 1; i <= 15; i++)
+                    for (int j = 1; j <= 15; j++)
+                        if (field[i][j] == '*' || field[i][j] == -4)
+                            field[i][j] = 0;
+                Dijkstra(1, 1, goalX, goalY);
+            }
+            break;
         case 32: // SPACE
             if (field[y - 'A' + 1][x] != -1) {
                 if (goalX != -1 && goalY != -1 && field[goalY][goalX] == '@')
@@ -234,6 +328,7 @@ int main() {
             field[1][1] = -2;
             break;
         }
+
     }
     return 0;
 }
