@@ -149,7 +149,7 @@ void tmforldkfrhflwma(int sx, int sy, int gx, int gy) {
     dist[sy][sx].parent_x = -1;
     dist[sy][sx].parent_y = -1;
     int visited_count =0;
-    Node pq[1000]; 
+    Node pq[1000]; // 진짜 마음만큼은 우선순위 큐를 사용하고 싶었지만 나의 시간과 실력이 아직 부족한 관계로 난 그냥 배열을 사용한다. 이름만큼은 우선순위 큐.
     int size = 0;
     pq[size++] = dist[sy][sx];
 
