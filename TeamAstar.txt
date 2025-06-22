@@ -5,6 +5,8 @@
 #include <math.h>
 #include <string.h>
 #include <time.h>
+#include <psapi.h>  
+#pragma comment(lib, "psapi.lib")
 #define UP 72
 #define DOWN 80
 #define LEFT 75
@@ -45,7 +47,6 @@ typedef struct {
 
 int visited[20][20];
 Node parent[20][20];
-
 int goalX = -1, goalY = -1;
 
 int heuristic(int x1, int y1, int x2, int y2) {
@@ -63,13 +64,20 @@ void draw_path(int gx, int gy) {
         y = py;
     }
 }
+void print_memory_usage() {
+    PROCESS_MEMORY_COUNTERS pmc;
+    if (GetProcessMemoryInfo(GetCurrentProcess(), &pmc, sizeof(pmc))) {
+        printf("- 메모리 사용량: %lu KB\n", pmc.WorkingSetSize / 1024);
+    }
+}
 
-void A_star(int sx, int sy, int gx, int gy) {
+void A_star(int sx, int sy, int gx, int gy) { 
     LARGE_INTEGER freq, start, end;
-    QueryPerformanceFrequency(&freq);
+    QueryPerformanceFrequency(&freq); // 초당 카운터 증가수 측정.
     QueryPerformanceCounter(&start);  // 시작 시간
 
-    // 기존 A* 알고리즘 코드 그대로
+    int visited_count = 0;
+
     memset(visited, 0, sizeof(visited));
     memset(parent, -1, sizeof(parent));
     Node open[1000];
@@ -80,16 +88,17 @@ void A_star(int sx, int sy, int gx, int gy) {
     while (openSize > 0) {
         int idx = 0;
         for (int i = 1; i < openSize; i++) {
-            if (open[i].g + open[i].h < open[idx].g + open[idx].h)
+            if (open[i].g + open[i].h < open[idx].g + open[idx].h) // ㅁ* 함수식
                 idx = i;
         }
 
         Node cur = open[idx];
-        open[idx] = open[--openSize];
+        open[idx] = open[--openSize]; // 이건 그냥 열린 노드에서 요소 제거.
 
         if (visited[cur.y][cur.x]) continue;
         visited[cur.y][cur.x] = 1;
         parent[cur.y][cur.x] = cur;
+        visited_count++;
 
         if (field[cur.y][cur.x] == 0)
             field[cur.y][cur.x] = -4;
@@ -97,9 +106,12 @@ void A_star(int sx, int sy, int gx, int gy) {
         if (cur.x == gx && cur.y == gy) {
             draw_path(gx, gy);
             QueryPerformanceCounter(&end);  // 종료 시간
-
-            double elapsed = (double)(end.QuadPart - start.QuadPart) * 1000.0 / freq.QuadPart;
-            printf("\n[A* 고정밀 수행 시간: %.4f ms]\n", elapsed);
+           
+            double elapsed = (double)(end.QuadPart - start.QuadPart) * 1000.0 / freq.QuadPart; 
+            printf("- 방문한 노드 수: %d개\n", visited_count);
+            print_memory_usage();
+            printf("\nA* 고정밀 수행 시간: %.4f ms\n", elapsed);
+           
             return;
         }
 
@@ -116,9 +128,9 @@ void A_star(int sx, int sy, int gx, int gy) {
 
     QueryPerformanceCounter(&end);
     double elapsed = (double)(end.QuadPart - start.QuadPart) * 1000.0 / freq.QuadPart;
-    printf("\n[A* 고정밀 수행 시간 (실패): %.4f ms]\n", elapsed);
+    printf("\nA* 고정밀 수행 시간: %.4f ms\n", elapsed);
 }
-void Dijkstra(int sx, int sy, int gx, int gy) {
+void tmforldkfrhflwma(int sx, int sy, int gx, int gy) {
     LARGE_INTEGER freq, start, end;
     QueryPerformanceFrequency(&freq);
     QueryPerformanceCounter(&start);
@@ -136,8 +148,8 @@ void Dijkstra(int sx, int sy, int gx, int gy) {
     dist[sy][sx].y = sy;
     dist[sy][sx].parent_x = -1;
     dist[sy][sx].parent_y = -1;
-
-    Node pq[1000];  // 우선순위 큐 대체 배열
+    int visited_count =0;
+    Node pq[1000]; 
     int size = 0;
     pq[size++] = dist[sy][sx];
 
@@ -153,6 +165,7 @@ void Dijkstra(int sx, int sy, int gx, int gy) {
 
         if (visited[cur.y][cur.x]) continue;
         visited[cur.y][cur.x] = 1;
+        visited_count++;
         parent[cur.y][cur.x] = cur;
 
         if (field[cur.y][cur.x] == 0)
@@ -162,7 +175,10 @@ void Dijkstra(int sx, int sy, int gx, int gy) {
             draw_path(gx, gy);
             QueryPerformanceCounter(&end);
             double elapsed = (double)(end.QuadPart - start.QuadPart) * 1000.0 / freq.QuadPart;
-            printf("\n[다익스트라 수행 시간: %.4f ms]\n", elapsed);
+            printf("- 방문한 노드 수: %d개\n", visited_count);
+            print_memory_usage();
+            printf("\Dijkstra*  수행 시간: %.4f ms]\n", elapsed);
+           
             return;
         }
 
@@ -186,7 +202,8 @@ void Dijkstra(int sx, int sy, int gx, int gy) {
 
     QueryPerformanceCounter(&end);
     double elapsed = (double)(end.QuadPart - start.QuadPart) * 1000.0 / freq.QuadPart;
-    printf("\n[다익스트라 수행 시간 (실패): %.4f ms]\n", elapsed);
+    printf("\n다익스트라 수행 시간 (실패): %.4f ms]\n", elapsed);
+   
 }
 
 
@@ -203,7 +220,7 @@ void print_field() {
             else if (field[i][j] == -1)
                 printf("%2c ", 'X');
             else if (field[i][j] == -2) {
-                SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 10);
+                SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 10); //색입히기
                 printf("%2c ", 'O');
             }
             else if (field[i][j] == -3) {
@@ -229,7 +246,7 @@ void print_field() {
 
 int main() {
     system("cls");
-
+    
     int x = 7;
     char y = 'H';
     int running = 1;
@@ -277,14 +294,14 @@ int main() {
                     A_star(1, 1, goalX, goalY);
             }
             break;
-        case 'd':
         case 'D':
+        case 'd':
             if (goalX != -1 && goalY != -1) {
                 for (int i = 1; i <= 15; i++)
                     for (int j = 1; j <= 15; j++)
                         if (field[i][j] == '*' || field[i][j] == -4)
                             field[i][j] = 0;
-                Dijkstra(1, 1, goalX, goalY);
+                tmforldkfrhflwma(1, 1, goalX, goalY);
             }
             break;
         case 32: // SPACE
